@@ -17,7 +17,14 @@ var Tag = "db"
 
 // Insert is a generic function to insert a record into a table.
 func Insert[T any](ctx context.Context, db sqlx.ExtContext, table string, a T) (int64, error) {
-	bld := sq.Insert(table).SetMap(tagops.ToMap(a, Tag, true, true)).Suffix("ON CONFLICT DO NOTHING")
+	return InsertFull(ctx, db, true, table, a)
+}
+
+// InsertFull is a generic function to insert a record into a table, if
+// omitEmpty is specified, fields with empty values will be omitted from the
+// insert statement.
+func InsertFull[T any](ctx context.Context, db sqlx.ExtContext, omitEmpty bool, table string, a T) (int64, error) {
+	bld := sq.Insert(table).SetMap(tagops.ToMap(a, Tag, omitEmpty, true)).Suffix("ON CONFLICT DO NOTHING")
 	stmt, binds, err := bld.ToSql()
 	if err != nil {
 		return 0, err
@@ -36,7 +43,12 @@ func Insert[T any](ctx context.Context, db sqlx.ExtContext, table string, a T) (
 
 // InsertPSQL is a Postgres flavour of Insert.
 func InsertPSQL[T any](ctx context.Context, db sqlx.ExtContext, table string, idCol string, a T) (int64, error) {
-	bld := sq.Insert(table).SetMap(tagops.ToMap(a, Tag, true, false)).Suffix("ON CONFLICT DO NOTHING RETURNING " + idCol)
+	return InsertPSQLFull(ctx, db, true, table, idCol, a)
+}
+
+// InsertPSQLFull is a Postgres flavour of InsertFull.
+func InsertPSQLFull[T any](ctx context.Context, db sqlx.ExtContext, omitEmpty bool, table string, idCol string, a T) (int64, error) {
+	bld := sq.Insert(table).SetMap(tagops.ToMap(a, Tag, omitEmpty, false)).Suffix("ON CONFLICT DO NOTHING RETURNING " + idCol)
 	stmt, binds, err := bld.ToSql()
 	if err != nil {
 		return 0, err
