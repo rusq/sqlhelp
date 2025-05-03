@@ -14,9 +14,10 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	sq "github.com/Masterminds/squirrel"
 	"github.com/jmoiron/sqlx"
-	"github.com/rusq/sqlhelp/sqlhelptest"
 	"github.com/stretchr/testify/assert"
 	_ "modernc.org/sqlite"
+
+	"github.com/rusq/sqlhelp/sqlhelptest"
 )
 
 type TestStruct struct {
@@ -696,5 +697,71 @@ func TestCollect2(t *testing.T) {
 		}
 		_, err = Collect2(iter)
 		assert.ErrorIs(t, err, assert.AnError)
+	})
+}
+
+func testDB(t *testing.T, migr ...string) sqlx.ExtContext {
+	t.Helper()
+	db, err := sqlx.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	for _, m := range migr {
+		if _, err := db.Exec(m); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return db
+}
+
+func TestInsertFullWithSuffix(t *testing.T) {
+	type TestStruct struct {
+		ID   int64     `db:"id"`
+		Dttm time.Time `db:"dttm"`
+		Name string    `db:"name"`
+	}
+	const createTable = `CREATE TABLE test_table (id INTEGER PRIMARY KEY, dttm DATETIME, name TEXT)`
+	t.Run("inserts with suffix", func(t *testing.T) {
+		var (
+			oldRec = TestStruct{
+				ID:   1,
+				Dttm: time.Date(2006, 1, 2, 15, 4, 5, 0, time.UTC),
+				Name: "test",
+			}
+			newRec = TestStruct{
+				ID:   1,
+				Dttm: time.Date(2006, 2, 2, 15, 4, 5, 0, time.UTC),
+				Name: "test2",
+			}
+		)
+		ctx := context.Background()
+		db := testDB(t, createTable)
+		n, err := Insert(ctx, db, "test_table", oldRec)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("inserted row with ID=%d", n)
+
+		gotOld, err := SelectRowByID[TestStruct](ctx, db, "test_table", oldRec.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assert.Equal(t, &oldRec, gotOld)
+
+		n, err = InsertFullWithSuffix(ctx, db, true, "test_table", newRec, "ON CONFLICT (id) DO UPDATE SET dttm = excluded.dttm, name = excluded.name")
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("inserted row with ID=%d", n)
+		gotNew, err := SelectRowByID[TestStruct](ctx, db, "test_table", newRec.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assert.Equal(t, &newRec, gotNew)
 	})
 }
