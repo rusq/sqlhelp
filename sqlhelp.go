@@ -24,7 +24,11 @@ func Insert[T any](ctx context.Context, db sqlx.ExtContext, table string, a T) (
 // omitEmpty is specified, fields with empty values will be omitted from the
 // insert statement.
 func InsertFull[T any](ctx context.Context, db sqlx.ExtContext, omitEmpty bool, table string, a T) (int64, error) {
-	bld := sq.Insert(table).SetMap(tagops.ToMap(a, Tag, omitEmpty, true)).Suffix("ON CONFLICT DO NOTHING")
+	return InsertFullWithSuffix(ctx, db, omitEmpty, table, a, "ON CONFLICT DO NOTHING")
+}
+
+func InsertFullWithSuffix[T any](ctx context.Context, db sqlx.ExtContext, omitEmpty bool, table string, a T, suffix string, suffbinds ...any) (int64, error) {
+	bld := sq.Insert(table).SetMap(tagops.ToMap(a, Tag, omitEmpty, true)).Suffix(suffix, suffbinds...)
 	stmt, binds, err := bld.ToSql()
 	if err != nil {
 		return 0, err
@@ -48,7 +52,11 @@ func InsertPSQL[T any](ctx context.Context, db sqlx.ExtContext, table string, id
 
 // InsertPSQLFull is a Postgres flavour of InsertFull.
 func InsertPSQLFull[T any](ctx context.Context, db sqlx.ExtContext, omitEmpty bool, table string, idCol string, a T) (int64, error) {
-	bld := sq.Insert(table).SetMap(tagops.ToMap(a, Tag, omitEmpty, false)).Suffix("ON CONFLICT DO NOTHING RETURNING " + idCol)
+	return InsertPSQLFullWithSuffix(ctx, db, omitEmpty, table, idCol, a, "ON CONFLICT DO NOTHING")
+}
+
+func InsertPSQLFullWithSuffix[T any](ctx context.Context, db sqlx.ExtContext, omitEmpty bool, table string, idCol string, a T, suffix string, suffbinds ...any) (int64, error) {
+	bld := sq.Insert(table).SetMap(tagops.ToMap(a, Tag, omitEmpty, false)).Suffix(suffix+" RETURNING "+idCol, suffbinds...)
 	stmt, binds, err := bld.ToSql()
 	if err != nil {
 		return 0, err
