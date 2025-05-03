@@ -27,6 +27,7 @@ func InsertFull[T any](ctx context.Context, db sqlx.ExtContext, omitEmpty bool, 
 	return InsertFullWithSuffix(ctx, db, omitEmpty, table, a, "ON CONFLICT DO NOTHING")
 }
 
+// InsertFullWithSuffix is a generic function to insert a record into a table, with a custom suffix instead of default "ON CONFLICT DO NOTHING".
 func InsertFullWithSuffix[T any](ctx context.Context, db sqlx.ExtContext, omitEmpty bool, table string, a T, suffix string, suffbinds ...any) (int64, error) {
 	bld := sq.Insert(table).SetMap(tagops.ToMap(a, Tag, omitEmpty, true)).Suffix(suffix, suffbinds...)
 	stmt, binds, err := bld.ToSql()
@@ -55,6 +56,7 @@ func InsertPSQLFull[T any](ctx context.Context, db sqlx.ExtContext, omitEmpty bo
 	return InsertPSQLFullWithSuffix(ctx, db, omitEmpty, table, idCol, a, "ON CONFLICT DO NOTHING")
 }
 
+// InsertPSQLFullWithSuffix is a Postgres flavour of InsertFullWithSuffix.
 func InsertPSQLFullWithSuffix[T any](ctx context.Context, db sqlx.ExtContext, omitEmpty bool, table string, idCol string, a T, suffix string, suffbinds ...any) (int64, error) {
 	bld := sq.Insert(table).SetMap(tagops.ToMap(a, Tag, omitEmpty, false)).Suffix(suffix+" RETURNING "+idCol, suffbinds...)
 	stmt, binds, err := bld.ToSql()
